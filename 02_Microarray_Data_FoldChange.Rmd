@@ -1,0 +1,249 @@
+---
+title: "Microarray data (2): Analyse fold changes"
+author: "Axel Nohturfft"
+date: "`r Sys.Date()`"
+output: 
+  html_notebook:
+    toc: TRUE
+    toc_float: TRUE
+    toc_depth: 3
+    code_folding: "hide"
+---
+
+<style>
+h1 {background: brown;color: white;padding-left: 7px;}
+h2 {background: grey;color: white;padding-left: 7px;}
+h3 {color: brown;}
+code {color: chocolate;}
+details p {font-family: monospace;}
+</style>
+
+
+
+## BDiB Session 04-March-2021  
+### Overview  
+In this workshop we will start by analysing a microarray dataset available on the [NCBI GEO](https://www.ncbi.nlm.nih.gov/geo/) repository.  
+The dataset is identified by a ***data series*** (GSE) ID: GSE26868. The web page for this data series is [here](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE26868).  
+The page contains quite a bit of information about the data, including e.g. the authors, a summary, a link to the PNAS paper where the data were first described.  
+The page further provides access to the microarray data in different formats:  
+
+* the raw (image) data: *GSE26868_RAW.tar*  
+* processed data: normalised and log-transformed expression data: *"Series Matrix File"*  
+* plus other data formats  
+
+In this **second script** we will analyse a table of fold changes in gene expression that was generated with the Geo2r tool on GEO.  
+
+For this analysis we assume that you have used the Geo2r tool on the [GSE26868 page](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE26868) to compare TNF-treated versus control ***THP-1 cells***. The table, including log2FC and pValue data should have been saved as: `"GSE26868_geo2r_results.txt"`.  
+
+
+### Summary of analysis steps    
+
+1. Clear memory and console
+2. Set working directory and load data file
+3. Have a brief look at the data frame
+4. How many different gene symbols are represented in our data frame?
+5. How many different Affy _**probes**_ are represented in our data frame?
+6. Clean-up   (i): Keep only relevant columns of the data frame
+7. Clean-up  (ii): Remove rows without gene symbol
+8. Clean-up (iii): Remove rows with ambiguous gene assignments
+9. How many probes per gene?
+10. Filter genes by adjusted p.value and fold change
+11. Sort data frames by log(fold change)
+12. What are the most strongly _**induced**_ genes?
+13. What are the most strongly _**suppressed**_ genes?
+14. Save symbols of the up and down-regulated genes in text files
+
+
+### SETUP  
+#### Clear memory and console  
+```{r clear memory}
+rm(list=ls(all=T)) # clear memory
+cat("\014") # clear console
+options(stringsAsFactors = FALSE)
+```
+
+#### Packages
+```{r load packages, warning=FALSE, message=FALSE}
+source("packages.R")
+```
+
+### Data from GEO  
+#### Load data file  
+```{r}
+data.file <- "GSE26868_geo2r_results.txt"
+file.exists(data.file) %>% stopifnot
+df <- read.table(file=data.file, header=TRUE, sep="\t", stringsAsFactors = FALSE)
+# The 'head' command prints the first 6 rows of a data frame (or first 6 item of a vector).
+# The 'tail' command ...
+head(df)
+```
+
+#### Have a look at the data frame  
+Print number of rows and columns:  
+```{r results="asis"}
+cat("Number of columns (samples): <b>", ncol(df), "</b><br>\n",
+    "Number of rows (probes): <b>", scales::comma(nrow(df)), "</b>",
+    sep="")
+```
+
+Print column headers:  
+```{r}
+names(df)
+```
+
+How many different Affy probes are represented in our data frame?  
+```{r}
+# print(length(unique(df$ID)))
+df$ID %>% as.character %>% unique %>% length %>% print
+```
+
+**Student exercise**: How many different gene symbols?  
+```{r}
+
+```
+
+### CLEAN UP DATA  
+#### Clean-up (i): Keep only relevant columns of the data frame:  
+```{r}
+df <- df[,c("ID", "Gene.symbol", "adj.P.Val", "logFC", "Gene.title")]
+head(df,2)
+```
+
+#### Clean-up (ii): Remove rows without gene symbol:  
+```{r results="asis"}
+df2 <- subset(df, Gene.symbol != "") %>% magrittr::set_rownames(NULL)
+cat("Remaining rows:", scales::comma(nrow(df2)))
+```
+
+Number of rows removed: `r nrow(df) - nrow(df2)`.  
+
+#### Clean-up (iii): Remove rows with ambiguous gene assignments:  
+Gene symbols separated by three forward slashes (///) indicate ambiguous gene assignments.  
+```{r}
+df2[72,]
+```
+
+We'll use the _**grep**_ function to search for items in the 'Gene.symbol' column that contain this text. The first argument to grep is the text we are looking for (///), the second item is a character vector in which to search (the 'Gene.symbol' column in our data frame). grep returns a vector of numbers - these numbers represent the position (index) of where in the vector the search text was found. Type '?grep' at the command prompt or use the RStudio help tab to learn more about grep and related functions.  
+
+```{r}
+# grep("///", df2$Gene.symbol, value=T) %>% head
+index.slashes <- grep("///", df2$Gene.symbol)
+# What does the index.slashes vector look like?
+head(index.slashes) # 72 141 176 212 227 312
+# How many gene symbols entries are affected?
+number.of.bad.symbols <- length(index.slashes) 
+cat(paste("Number of 'bad' symbols:", number.of.bad.symbols))
+# 933
+```
+
+We can then use this index to subset our data frame and remove the 'bad' rows. (Note the use of the minus sign):
+```{r}
+df3 <- df2[-index.slashes,]
+cat("Remaining rows:", scales::comma(nrow(df3)))
+```
+
+###  QUALITY CONTROL: FILTERING DATA  
+To identify the most relevant genes in our dataset, we will filter the data based on (i) a maximum adjusted p value and (ii) a minimum log~2~(fold change).
+
+#### Filtering by adjusted p value:  
+The R `subset` function is very useful for filtering data frames:  
+```{r}
+df4 <- subset(df3, adj.P.Val <= 0.05)
+cat("Remaining rows:", scales::comma(nrow(df4)))
+```
+(Number of rows removed: `r nrow(df3) - nrow(df4)`)  
+
+### Filtering by log~2~(fold change):  
+```{r}
+df5 <- subset(df4, abs(logFC) >= 1)
+cat("Remaining rows:", scales::comma(nrow(df5)))
+```
+(Number of rows removed: `r nrow(df4) - nrow(df5)`)  
+
+```{r}
+df5[order(df5$logFC),] %>% print #head
+```
+
+
+### SELECT UP AND DOWNREGULATED GENES
+We can now extract the up and down-regulated genes and save them for further analysis:  
+
+#### Up-regulated genes:  
+```{r}
+df.up <- subset(df5, logFC > 0)
+# Sort decreasing by fold change:
+df.up <- df.up[order(df.up$logFC, decreasing=TRUE),] %>% 
+  magrittr::set_rownames(NULL)
+nrow(df.up)
+head(df.up, 4)
+```
+### Down-regulated genes:  
+```{r}
+df.down <- subset(df5, logFC < 0)
+df.down <- df.down[order(df.down$logFC, decreasing=FALSE),]
+nrow(df.down)
+head(df.down, 4)
+```
+
+#### Save gene symbols:  
+```{r}
+up <- df.up$Gene.symbol %>% unique %>% sort
+up
+out.file.up <- "GSE26868_up.txt"
+cat(up, file=out.file.up, sep="\n")
+```
+
+```{r}
+down <- df.down$Gene.symbol %>% unique %>% sort
+down
+out.file.down <- "GSE26868_down.txt"
+cat(down, file=out.file.down, sep="\n")
+```
+
+```{r}
+cat(list.files(), sep="\n")
+```
+
+
+### NEXT ...  
+The genes could now be analyzed e.g. for 'gene set enrichment' to see if many of them fall into a known category.  
+Such analyses can be done directly in R, or more conveniently by uploading the gene symbols to websites such as:
+
+* [GOrilla](http://cbl-gorilla.cs.technion.ac.il/): looks for enrichment with 'gene ontology' (GO) categories.
+* [enrichr](http://amp.pharm.mssm.edu/Enrichr/) and  
+* [GSEA](http://software.broadinstitute.org/gsea/index.jsp) ('gene set enrichment analysis') allow to search for overlap among a larger set of gene categories.
+
+### Session info  
+```{r SESSION INFO DATE, results="asis"}
+cat("Date:", format(Sys.time(), "%a %d-%b-%Y %H:%M:%S"), "<br>\n")
+```
+
+```{r SESSION INFO PLATFORM}
+si <- sessioninfo::session_info()
+si.platform.df <- data.frame(
+  setting = names(si$platform),
+  value   = unlist(si$platform),
+  stringsAsFactors = FALSE,
+  row.names = NULL
+)
+DT::datatable(si.platform.df,
+              options = list(columnDefs = list(list(className = 'dt-left', targets = 0:1)),
+                             dom = 't'),
+              rownames = FALSE,
+              class="stripe")
+
+```
+
+```{r}
+si$packages %>% 
+  as.data.frame() %>% 
+  dplyr::select(package, version=loadedversion, date, source) %>% 
+  DT::datatable(options = list(columnDefs = list(list(className = 'dt-left', targets = 0:3))),
+              rownames = FALSE,
+              class="stripe")
+  
+```
+
+
+
+
