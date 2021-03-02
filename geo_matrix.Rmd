@@ -58,12 +58,91 @@ class(gse)
 head(Biobase::featureNames(gse))
 ```
 
+### Sample info  
 ```{r}
-Biobase::pData(gse)[,c("title", "source_name_ch1")] %>% knitr::kable(.)
+Biobase::pData(gse)[,c("title", "source_name_ch1")] %>%
+  knitr::kable(.) %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped"))
 ```
 
 
-### Meta info about the data series:  
-```{r print meta info, results="asis"}
-details::details(GEOquery::Meta(gse), lang=NULL, summary="Show meta info")
+### Plot data as a boxplot  
+#### First obtain the data matrix:
+```{r}
+mx <- Biobase::exprs(gse)
+# class(mx) # "matrix"
 ```
+
+
+#### Print an extract:  
+```{r}
+mx[1:4, 1:4]
+```
+#### Generate plot:  
+```{r message=FALSE, warning=FALSE}
+op <- par()
+par(mar=c(7,4,0,2)) # default is (5,4,4,2)
+boxplot(mx, las=2)
+par(op)
+rm(op)
+```
+### Dimensionality reduction  
+Each row in the data matrix represents one probe (>gene), and each column is one sample.
+
+```{r results="asis"}
+cat("Number of columns (samples): <b>", ncol(mx), "</b><br>\n",
+    "Number of rows (probes): <b>", scales::comma(nrow(mx)), "</b>",
+    sep="")
+```
+
+There are a number of different methods available for dimensionality reduction to compare similarities between the samples:  
+
+#### Multidimensional scaling analysis (MDS)  
+I recommend [this Youtube video](https://youtu.be/GEn-_dAyYME) for a nice explanation of MDS.
+
+```{r fig.height=4, fig.width=6}
+opar <- par(no.readonly = TRUE)
+par(xpd = TRUE, mar = par()$mar + c(0, 0, 0, 5))
+limma::plotMDS(mx, pch=1)
+par(opar)
+```
+
+The plot above indicates three groups of samples. Let's check if they correspond to different cells types or treatments:  
+
+```{r fig.height=4, fig.width=6}
+cells <- Biobase::pData(gse)$characteristics_ch1 %>% 
+  as.character() %>% 
+  stringr::str_remove("^cell line: ") %>% 
+  set_names(as.character(Biobase::pData(gse)$geo_accession))
+labels.cells <- cells[colnames(mx)]
+
+tnf <- grepl("tnf", Biobase::pData(gse)$description, ignore.case=T) %>% 
+  as.numeric %>% add(1) %>% 
+  set_names(as.character(Biobase::pData(gse)$geo_accession))
+tnf <- tnf[colnames(mx)]
+# unname(tnf) # 1 1 2 2 1 1 1 2 2 2
+colrs <- c("brown", "blue")[tnf] # brown = ctrl; blue=TNF
+
+opar <- par(no.readonly = TRUE)
+par(xpd = TRUE, mar = par()$mar + c(0, 0, 0, 5))
+limma::plotMDS(mx, labels=labels.cells, col=colrs)
+legend(x="center", legend=c("Ctrl", "TNF"), pch=1,
+       col=c("brown", "blue"), text.col = c("brown", "blue"))
+par(opar)
+rm(cells, labels.cells, tnf, colrs, opar)
+```
+
+#### Multidimensional scaling  
+aka as *principal coordinates analysis*.  
+
+```{r}
+d <- dist(mx)
+dim(d)
+x <- d[, 1]
+y <- d[, 2]
+```
+
+
+
+
+
