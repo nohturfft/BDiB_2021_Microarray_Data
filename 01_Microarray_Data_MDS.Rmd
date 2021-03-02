@@ -33,6 +33,12 @@ The page further provides access to the microarray data in different formats:
 
 In this first script we will take a first look at the processed data matrix.  
 
+```{r clear memory}
+rm(list=ls(all=T)) # clear memory
+cat("\014") # clear console
+options(stringsAsFactors = FALSE)
+```
+
 ```{r load packages, warning=FALSE, message=FALSE}
 source("packages.R")
 ```
