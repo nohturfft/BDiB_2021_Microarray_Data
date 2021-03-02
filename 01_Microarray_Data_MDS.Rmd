@@ -10,7 +10,6 @@ output:
     code_folding: "hide"
 ---
 
-
 <style>
 h1 {background: brown;color: white;padding-left: 7px;}
 h2 {background: grey;color: white;padding-left: 7px;}
@@ -19,7 +18,20 @@ code {color: chocolate;}
 details p {font-family: monospace;}
 </style>
 
+
+
 ## BDiB Session 04-March-2021  
+### Overview  
+In this workshop we will start by analysing a microarray dataset available on the [NCBI GEO](https://www.ncbi.nlm.nih.gov/geo/) repository.  
+The dataset is identified by a ***data series*** (GSE) ID: GSE26868. The web page for this data series is [here](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE26868).  
+The page contains quite a bit of information about the data, including e.g. the authors, a summary, a link to the PNAS paper where the data were first described.  
+The page further provides access to the microarray data in different formats:  
+
+* the raw (image) data: *GSE26868_RAW.tar*  
+* processed data: normalised and log-transformed expression data: *"Series Matrix File"*  
+* plus other data formats  
+
+In this first script we will take a first look at the processed data matrix.  
 
 ```{r load packages, warning=FALSE, message=FALSE}
 source("packages.R")
@@ -107,7 +119,7 @@ limma::plotMDS(mx, pch=1)
 par(opar)
 ```
 
-The plot above indicates three groups of samples. Let's check if they correspond to different cells types or treatments:  
+The plot above indicates three groups of samples. Let's check if they correspond to different cells types and/or treatments:  
 
 ```{r fig.height=4, fig.width=6}
 cells <- Biobase::pData(gse)$characteristics_ch1 %>% 
@@ -123,25 +135,47 @@ tnf <- tnf[colnames(mx)]
 # unname(tnf) # 1 1 2 2 1 1 1 2 2 2
 colrs <- c("brown", "blue")[tnf] # brown = ctrl; blue=TNF
 
-opar <- par(no.readonly = TRUE)
+opar <- par(no.readonly = TRUE) # saving current plotting parameters
 par(xpd = TRUE, mar = par()$mar + c(0, 0, 0, 5))
 limma::plotMDS(mx, labels=labels.cells, col=colrs)
 legend(x="center", legend=c("Ctrl", "TNF"), pch=1,
        col=c("brown", "blue"), text.col = c("brown", "blue"))
-par(opar)
-rm(cells, labels.cells, tnf, colrs, opar)
+par(opar) # restoring original plotting parameters
+rm(cells, labels.cells, tnf, colrs, opar) # clear variables
 ```
 
-#### Multidimensional scaling  
-aka as *principal coordinates analysis*.  
+The multidimensional scaling plot indicates that the samples cluster nicely by both cell type (greatest distance / dim 1) and treatment.
+
+### Session info  
+```{r SESSION INFO DATE, results="asis"}
+cat("Date:", format(Sys.time(), "%a %d-%b-%Y %H:%M:%S"), "<br>\n")
+```
+
+```{r SESSION INFO PLATFORM}
+si <- sessioninfo::session_info()
+si.platform.df <- data.frame(
+  setting = names(si$platform),
+  value   = unlist(si$platform),
+  stringsAsFactors = FALSE,
+  row.names = NULL
+)
+DT::datatable(si.platform.df,
+              options = list(columnDefs = list(list(className = 'dt-left', targets = 0:1)),
+                             dom = 't'),
+              rownames = FALSE,
+              class="stripe")
+
+```
 
 ```{r}
-d <- dist(mx)
-dim(d)
-x <- d[, 1]
-y <- d[, 2]
+si$packages %>% 
+  as.data.frame() %>% 
+  dplyr::select(package, version=loadedversion, date, source) %>% 
+  DT::datatable(options = list(columnDefs = list(list(className = 'dt-left', targets = 0:3))),
+              rownames = FALSE,
+              class="stripe")
+  
 ```
-
 
 
 
