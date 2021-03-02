@@ -31,6 +31,18 @@ if (is.null(lib.dir)) {
     install.packages("knitr", dependencies=deps)
   }
   
+  if (!requireNamespace("kableExtra", quietly = TRUE)) {
+    install.packages("kableExtra", dependencies=deps)
+  }
+  
+  if (!requireNamespace("scales", quietly = TRUE)) {
+    install.packages("scales", dependencies=deps)
+  }
+  
+  if (!requireNamespace("stringr", quietly = TRUE)) {
+    install.packages("stringr", dependencies=deps)
+  }
+  
   rm(deps)
 }
 
