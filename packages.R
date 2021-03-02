@@ -43,6 +43,10 @@ if (is.null(lib.dir)) {
     install.packages("stringr", dependencies=deps)
   }
   
+  if (!requireNamespace("DT", quietly = TRUE)) {
+    install.packages("DT", dependencies=deps)
+  }
+  
   rm(deps)
 }
 
