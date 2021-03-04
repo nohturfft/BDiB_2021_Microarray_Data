@@ -1,5 +1,5 @@
 ---
-title: "Microarray data (2): Analyse fold changes"
+title: "Microarray data (2): Analyse fold changes: GSE26868"
 author: "Axel Nohturfft"
 date: "`r Sys.Date()`"
 output: 
@@ -10,16 +10,15 @@ output:
     code_folding: "hide"
 ---
 
-<style>
+```{css, echo=FALSE}
 h1 {background: brown;color: white;padding-left: 7px;}
 h2 {background: grey;color: white;padding-left: 7px;}
 h3 {color: brown; margin-top: 20px;}
 h4 {margin-top: 20px;}
 code {color: chocolate;}
+details summary span {font-weight: bold;}
 details p {font-family: monospace;}
-</style>
-
-
+```
 
 ## BDiB Session 04-March-2021  
 ### Overview  
@@ -69,10 +68,16 @@ source("packages.R")
 ```
 
 ### Data from GEO  
+```{r}
+gse.id <- "GSE26868"
+data.file <- "GSE26868_geo2r_results.txt"
+```
+
+
 #### Load data file  
 Print first six rows:  
 ```{r}
-data.file <- "GSE26868_geo2r_results.txt"
+
 file.exists(data.file) %>% stopifnot
 df <- read.table(file=data.file, header=TRUE, sep="\t", stringsAsFactors = FALSE)
 # The 'head' command prints the first 6 rows of a data frame (or first 6 item of a vector).
@@ -94,7 +99,7 @@ names(df)
 ```
 
 How many different Affy probes are represented in our data frame?  
-```{r}
+```{r class.output="op-asis"}
 # print(length(unique(df$ID)))
 df$ID %>% as.character %>% unique %>% length %>% print
 ```
@@ -113,7 +118,7 @@ head(df,2)
 ```
 
 #### Clean-up (ii): Remove rows without gene symbol:  
-```{r results="asis"}
+```{r results="asis", class.output="op-asis"}
 df2 <- subset(df, Gene.symbol != "") %>% magrittr::set_rownames(NULL)
 cat("Remaining rows: <b>", scales::comma(nrow(df2)), "</b><br>\n",
     "(Number of rows removed: <b>", scales::comma(nrow(df) - nrow(df2)), "</b>)",
@@ -173,7 +178,10 @@ cat("Minimum log2 fold change:<b>", logFC.min, "</b>")
 
 ```{r results="asis"}
 df5 <- subset(df4, abs(logFC) >= logFC.min)
-cat("Remaining rows:<b>", scales::comma(nrow(df5)), "</b>")
+cat("Remaining rows: <b>", scales::comma(nrow(df5)), "</b><br>\n",
+    "(Number of rows removed: <b>",
+    scales::comma(nrow(df4) - nrow(df5)),
+    "</b>)", sep="")
 ```
 (Number of rows removed: `r nrow(df4) - nrow(df5)`)  
 
@@ -214,28 +222,26 @@ head(df.down, 4)
 
 
 #### Save gene symbols:  
-Show gene symbols:
 ```{r results="asis"}
 up <- df.up$Gene.symbol %>% unique %>% sort
-cat("<tt>", paste(up, collapse=", "), "</tt>", sep="")
+details::details(paste(up, collapse=", "), lang=NULL, summary="Show upregulated genes")
 ```
 
 Save gene symbols:
 ```{r results="asis"}
-out.file.up <- "GSE26868_up.txt"
+out.file.up <-  paste0(gse.id, "_up.txt")
 cat(up, file=out.file.up, sep="\n")
 cat("File saved:<b>", out.file.up, "</b>")
 ```
 
-Show down regulated gene symbols:
 ```{r results="asis"}
 down <- df.down$Gene.symbol %>% unique %>% sort
-cat("<tt>", paste(down, collapse=", "), "</tt>", sep="")
+details::details(paste(down, collapse=", "), lang=NULL, summary="Show downregulated genes")
 ```
 
 Save gene symbols:
 ```{r results="asis"}
-out.file.down <- "GSE26868_down.txt"
+out.file.down <- paste0(gse.id, "_down.txt")
 cat(down, file=out.file.down, sep="\n")
 cat("File saved:<b>", out.file.down, "</b>")
 ```
