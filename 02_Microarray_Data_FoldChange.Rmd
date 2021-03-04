@@ -129,14 +129,14 @@ df2[72,]
 
 We'll use the _**grep**_ function to search for items in the 'Gene.symbol' column that contain this text. The first argument to grep is the text we are looking for (///), the second item is a character vector in which to search (the 'Gene.symbol' column in our data frame). grep returns a vector of numbers - these numbers represent the position (index) of where in the vector the search text was found. Type '?grep' at the command prompt or use the RStudio help tab to learn more about grep and related functions.  
 
-```{r}
+```{r results="asis"}
 # grep("///", df2$Gene.symbol, value=T) %>% head
 index.slashes <- grep("///", df2$Gene.symbol)
 # What does the index.slashes vector look like?
 head(index.slashes) # 72 141 176 212 227 312
 # How many gene symbols entries are affected?
 number.of.bad.symbols <- length(index.slashes) 
-cat(paste("Number of 'bad' symbols:", number.of.bad.symbols))
+cat(paste("Number of rows with 'bad' symbols:<b>", number.of.bad.symbols), "</b>")
 # 933
 ```
 
