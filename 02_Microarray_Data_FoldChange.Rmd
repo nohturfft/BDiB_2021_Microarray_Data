@@ -13,7 +13,8 @@ output:
 <style>
 h1 {background: brown;color: white;padding-left: 7px;}
 h2 {background: grey;color: white;padding-left: 7px;}
-h3 {color: brown;}
+h3 {color: brown; margin-top: 20px;}
+h4 {margin-top: 20px;}
 code {color: chocolate;}
 details p {font-family: monospace;}
 </style>
@@ -69,6 +70,7 @@ source("packages.R")
 
 ### Data from GEO  
 #### Load data file  
+Print first six rows:  
 ```{r}
 data.file <- "GSE26868_geo2r_results.txt"
 file.exists(data.file) %>% stopifnot
@@ -103,7 +105,8 @@ df$ID %>% as.character %>% unique %>% length %>% print
 ```
 
 ### CLEAN UP DATA  
-#### Clean-up (i): Keep only relevant columns of the data frame:  
+#### Clean-up (i): Keep only relevant columns of the data frame  
+To check results, print first two rows:  
 ```{r}
 df <- df[,c("ID", "Gene.symbol", "adj.P.Val", "logFC", "Gene.title")]
 head(df,2)
@@ -112,13 +115,14 @@ head(df,2)
 #### Clean-up (ii): Remove rows without gene symbol:  
 ```{r results="asis"}
 df2 <- subset(df, Gene.symbol != "") %>% magrittr::set_rownames(NULL)
-cat("Remaining rows:", scales::comma(nrow(df2)))
+cat("Remaining rows: <b>", scales::comma(nrow(df2)), "</b><br>\n",
+    "(Number of rows removed: <b>", scales::comma(nrow(df) - nrow(df2)), "</b>)",
+    sep="")
 ```
-
-Number of rows removed: `r nrow(df) - nrow(df2)`.  
 
 #### Clean-up (iii): Remove rows with ambiguous gene assignments:  
 Gene symbols separated by three forward slashes (///) indicate ambiguous gene assignments.  
+Print an example:
 ```{r}
 df2[72,]
 ```
@@ -137,9 +141,9 @@ cat(paste("Number of 'bad' symbols:", number.of.bad.symbols))
 ```
 
 We can then use this index to subset our data frame and remove the 'bad' rows. (Note the use of the minus sign):
-```{r}
+```{r results="asis"}
 df3 <- df2[-index.slashes,]
-cat("Remaining rows:", scales::comma(nrow(df3)))
+cat("Remaining rows:<b>", scales::comma(nrow(df3)), "</b>")
 ```
 
 ###  QUALITY CONTROL: FILTERING DATA  
@@ -147,16 +151,29 @@ To identify the most relevant genes in our dataset, we will filter the data base
 
 #### Filtering by adjusted p value:  
 The R `subset` function is very useful for filtering data frames:  
-```{r}
-df4 <- subset(df3, adj.P.Val <= 0.05)
-cat("Remaining rows:", scales::comma(nrow(df4)))
+```{r results="asis"}
+adj.P.Val.max <- 0.05
+cat("Maximum adjusted p-value:<b>", adj.P.Val.max, "</b>")
 ```
-(Number of rows removed: `r nrow(df3) - nrow(df4)`)  
 
-### Filtering by log~2~(fold change):  
-```{r}
-df5 <- subset(df4, abs(logFC) >= 1)
-cat("Remaining rows:", scales::comma(nrow(df5)))
+
+```{r results="asis"}
+df4 <- subset(df3, adj.P.Val <= adj.P.Val.max)
+cat("Remaining rows: <b>", scales::comma(nrow(df4)), "</b><br>\n",
+    "(Number of rows removed: <b>", scales::comma(nrow(df3) - nrow(df4)), "</b>)",
+    sep="")
+```
+
+
+#### Filtering by log~2~(fold change):  
+```{r results="asis"}
+logFC.min <- 1
+cat("Minimum log2 fold change:<b>", logFC.min, "</b>")
+```
+
+```{r results="asis"}
+df5 <- subset(df4, abs(logFC) >= logFC.min)
+cat("Remaining rows:<b>", scales::comma(nrow(df5)), "</b>")
 ```
 (Number of rows removed: `r nrow(df4) - nrow(df5)`)  
 
@@ -169,37 +186,61 @@ df5[order(df5$logFC),] %>% print #head
 We can now extract the up and down-regulated genes and save them for further analysis:  
 
 #### Up-regulated genes:  
-```{r}
+```{r results="asis"}
 df.up <- subset(df5, logFC > 0)
 # Sort decreasing by fold change:
 df.up <- df.up[order(df.up$logFC, decreasing=TRUE),] %>% 
   magrittr::set_rownames(NULL)
-nrow(df.up)
+cat("Number of up-regulated genes:<b>", nrow(df.up), "</b>")
+```
+
+Print first four rows of resulting data frame:  
+```{r}
 head(df.up, 4)
 ```
+
+
 ### Down-regulated genes:  
-```{r}
+```{r results="asis"}
 df.down <- subset(df5, logFC < 0)
 df.down <- df.down[order(df.down$logFC, decreasing=FALSE),]
-nrow(df.down)
+cat("Number of up-regulated genes:<b>", nrow(df.down), "</b>")
+```
+
+Print first four rows of resulting data frame:  
+```{r}
 head(df.down, 4)
 ```
 
+
 #### Save gene symbols:  
-```{r}
+Show gene symbols:
+```{r results="asis"}
 up <- df.up$Gene.symbol %>% unique %>% sort
-up
+cat("<tt>", paste(up, collapse=", "), "</tt>", sep="")
+```
+
+Save gene symbols:
+```{r results="asis"}
 out.file.up <- "GSE26868_up.txt"
 cat(up, file=out.file.up, sep="\n")
+cat("File saved:<b>", out.file.up, "</b>")
 ```
 
-```{r}
+Show down regulated gene symbols:
+```{r results="asis"}
 down <- df.down$Gene.symbol %>% unique %>% sort
-down
+cat("<tt>", paste(down, collapse=", "), "</tt>", sep="")
+```
+
+Save gene symbols:
+```{r results="asis"}
 out.file.down <- "GSE26868_down.txt"
 cat(down, file=out.file.down, sep="\n")
+cat("File saved:<b>", out.file.down, "</b>")
 ```
 
+Show files in working directory:  
 ```{r}
 cat(list.files(), sep="\n")
 ```
